@@ -8,7 +8,7 @@ import json
 
 ID_SUFFIX=".id"
 EN_SUFFIX=".en.tok"
-Fr_SUFFIX=".fr.tok"
+FR_SUFFIX= ".fr.tok"
 
 
 def separate_identification(line):
@@ -22,7 +22,7 @@ def separate_identification(line):
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("-d","--debug",action='store_true')
-    p.add_argument("-p","--file-pattern",nargs='+',required=True)
+    p.add_argument("-p","--file-pattern", nargs='+', required=True, help="The base file name pattern where the files with suffixes {%s,%s,%s} are"%(ID_SUFFIX, EN_SUFFIX, FR_SUFFIX))
     p.add_argument("--output-location",default="/tmp/")
     p.add_argument("--output-suffix",default="-out.json")
     return p.parse_args()
