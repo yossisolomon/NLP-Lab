@@ -29,8 +29,10 @@ def parse_args():
 
 
 def get_speakers_lines_from_file(pattern):
+    filename = pattern + ID_SUFFIX
+    logging.info("Running speaker extraction from "+filename)
     speakers = {}
-    with open(pattern + ID_SUFFIX) as f:
+    with open(filename) as f:
         for line in f:
             line_count, name, lang = separate_identification(line)
             if name not in speakers:
@@ -45,12 +47,15 @@ if __name__ == '__main__':
     args = parse_args()
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.INFO)
 
     for pattern in args.file_pattern:
-        logging.debug("Running for pattern "+pattern)
+        logging.info("Running speaker extraction from pattern "+pattern)
         speakers = get_speakers_lines_from_file(pattern)
+        logging.info("Found " + str(len(speakers)) + " speakers")
         output = args.output_location + pattern.split("/")[-1] + args.output_suffix
-        logging.debug("Outputting speakers to "+output)
+        logging.info("Outputting speakers to "+output)
         with open(output,'w') as out:
             json.dump(speakers,out, sort_keys=True, indent=4, separators=(',', ': '))
 
