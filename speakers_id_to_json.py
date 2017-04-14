@@ -23,8 +23,8 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("-d","--debug",action='store_true')
     p.add_argument("-p","--file-pattern",nargs='+',required=True)
-    p.add_argument("-o","--output-location",default="/tmp/")
-    p.add_argument("-o","--output-suffix",default="-out.json")
+    p.add_argument("--output-location",default="/tmp/")
+    p.add_argument("--output-suffix",default="-out.json")
     return p.parse_args()
 
 
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     for pattern in args.file_pattern:
         logging.debug("Running for pattern "+pattern)
         speakers = get_speakers_lines_from_file(pattern)
-        output = args.output_location + pattern + args.output_suffix
+        output = args.output_location + pattern.split("/")[-1] + args.output_suffix
         logging.debug("Outputting speakers to "+output)
         with open(output,'w') as out:
             json.dump(speakers,out, sort_keys=True, indent=4, separators=(',', ': '))
