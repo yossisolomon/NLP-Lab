@@ -6,7 +6,7 @@ import xml.etree.ElementTree as etree
 import json
 import matplotlib.pyplot as plt
 from random import shuffle
-from nltk import FreqDist
+from collections import Counter
 from en_function_words import FUNCTION_WORDS
 
 ID_SUFFIX = ".id"
@@ -18,6 +18,7 @@ FR_LINES_KEY = "FR_LINES"
 EN_PERCENT_KEY = "EN_PERCENT"
 FR_PERCENT_KEY = "FR_PERCENT"
 
+fw_ones_counter = Counter(FUNCTION_WORDS)
 
 class NativeSpeakerSeparator:
     def __init__(self, threshold):
@@ -175,17 +176,6 @@ def lines_to_word_chunks(class_lines, chunk_size, to_shuffle=False):
     return chunks
 
 
-def get_func_word_freq(words, function_words):
-    freq_dist = FreqDist()
-    for w in words:
-        if w in function_words:
-            freq_dist[w] += 1
-    fw_freq = {}
-    for key,value in freq_dist.iteritems():
-        fw_freq[key] = value
-    return fw_freq
-
-
 def extract_lines_from_corpus_by_index(line_nums, lines_file):
     lines = map(lambda i: lines_file[i], line_nums)
     assert len(lines) == len(line_nums)
@@ -195,6 +185,24 @@ def extract_lines_from_corpus_by_index(line_nums, lines_file):
 def check_class_list(class_list):
     assert_no_duplicates(class_list)
     assert len(class_list) > 0, "Class list is empty..."
+
+
+# freq list of a chunk
+def get_func_word_counts(words):
+    c = Counter(words)
+    fw_words_counts = map(lambda fw: c[fw],FUNCTION_WORDS)
+    assert len(fw_words_counts) == len(FUNCTION_WORDS), str(len(fw_words_counts)) + " not " + str(len(FUNCTION_WORDS))
+    return fw_words_counts
+
+
+def chunks_fw_count_to_json(chunks, prefix):
+    chunks_fw_counts = [get_func_word_counts(chunk) for chunk in chunks]
+
+    filename = prefix + '-counts.json'
+    logging.info("Writing chunks' function word counts to " + filename)
+    with open(filename, 'w') as f:
+        json.dump(chunks_fw_counts, f)
+    logging.info("Done writing chunks' function word counts to " + filename)
 
 
 if __name__ == '__main__':
@@ -248,6 +256,9 @@ if __name__ == '__main__':
 
         output_lines_json(args.output_location, lines)
 
-    en_native_chunks = lines_to_word_chunks(lines[EN_LINES_KEY], args.chunk_size)
-    en_non_native_chunks = lines_to_word_chunks(lines[EN_NON_NATIVE_LINES_KEY], args.chunk_size)
-    fr_native_chunks = lines_to_word_chunks(lines[FR_LINES_KEY], args.chunk_size)
+    chunks_by_class = {}
+    for key in [EN_LINES_KEY, EN_NON_NATIVE_LINES_KEY, FR_LINES_KEY]:
+        logging.info("Generating " + key + " chunks of size=" + str(args.chunk_size))
+        chunks_by_class[key] = lines_to_word_chunks(lines[key], args.chunk_size)
+
+    chunks_fw_count_to_json(chunks_by_class[EN_LINES_KEY], args.output_location + EN_LINES_KEY)
