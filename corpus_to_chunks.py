@@ -178,16 +178,6 @@ def get_func_word_counts(words):
     return fw_words_counts
 
 
-def chunks_fw_count_to_json(chunks, prefix):
-    chunks_fw_counts = [get_func_word_counts(chunk) for chunk in chunks]
-
-    filename = prefix + FW_COUNTS_SUFFIX
-    logging.info("Writing chunks' function word counts to " + filename)
-    with open(filename, 'w') as f:
-        json.dump(chunks_fw_counts, f)
-    logging.info("Done writing chunks' function word counts to " + filename)
-
-
 if __name__ == '__main__':
     args = parse_args()
     set_logging(args.debug)
@@ -241,4 +231,10 @@ if __name__ == '__main__':
     for key in [EN_LINES_KEY, EN_NON_NATIVE_LINES_KEY, FR_LINES_KEY]:
         logging.info("Generating " + key + " chunks of size=" + str(args.chunk_size))
         chunks = lines_to_word_chunks(lines[key], args.chunk_size)
-        chunks_fw_count_to_json(chunks, args.output_location + CHUNK_FILENAME_PREFIX.format(key,str(args.chunk_size)))
+        logging.info("Analyzing chunks")
+        chunks_fw_counts = [get_func_word_counts(chunk) for chunk in chunks]
+        filename = args.output_location + CHUNK_FILENAME_PREFIX.format(key,str(args.chunk_size)) + FW_COUNTS_SUFFIX
+        logging.info("Writing chunks' function word counts to %s", filename)
+        with open(filename, 'w') as f:
+            json.dump(chunks_fw_counts, f)
+        logging.info("Done writing chunks' function word counts to %s", filename)

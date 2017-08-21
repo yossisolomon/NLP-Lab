@@ -12,7 +12,7 @@ def parse_args():
     p.add_argument("-d","--debug",action='store_true')
     p.add_argument("--input-location",default="/tmp/")
     p.add_argument("-c","--chunk-size",type=int,default=500)
-    p.add_argument("-s","--sample-size",type=int,default=700)
+    p.add_argument("-s","--sample-size",type=int,default=750)
     return p.parse_args()
 
 
@@ -29,9 +29,11 @@ def score_cross_validated(chunks_list, classes_list):
     data = np.concatenate(chunks_list)
     target = np.concatenate(classes_list)
     clf = RandomForestClassifier(n_estimators=20)
-    cv = StratifiedKFold(target)
+    cv = StratifiedKFold(target, n_folds=10)
     # Valid scoring options are ['accuracy', 'adjusted_rand_score', 'average_precision', 'f1', 'log_loss', 'mean_squared_error', 'precision', 'r2', 'recall', 'roc_auc']
-    logging.info(cross_val_score(clf, data, target, cv=cv, scoring='accuracy'))
+    score = cross_val_score(clf, data, target, cv=cv, scoring='accuracy')
+    logging.info(score)
+    logging.info("Average score = %f", np.mean(score, dtype=np.float64))
 
 
 if __name__ == '__main__':
