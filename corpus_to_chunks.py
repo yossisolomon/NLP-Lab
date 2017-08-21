@@ -1,24 +1,15 @@
 #!/usr/bin/python
 
 import argparse
-import logging
+from shared import *
 import xml.etree.ElementTree as etree
-import json
 import matplotlib.pyplot as plt
 from random import shuffle
 from collections import Counter
 from en_function_words import FUNCTION_WORDS
 
-ID_SUFFIX = ".id"
-EN_SUFFIX = ".en.tok"
-FR_SUFFIX = ".fr.tok"
-EN_LINES_KEY = "EN_LINES"
-EN_NON_NATIVE_LINES_KEY = "NON_NATIVE_LINES"
-FR_LINES_KEY = "FR_LINES"
-EN_PERCENT_KEY = "EN_PERCENT"
-FR_PERCENT_KEY = "FR_PERCENT"
-
 fw_ones_counter = Counter(FUNCTION_WORDS)
+
 
 class NativeSpeakerSeparator:
     def __init__(self, threshold):
@@ -147,14 +138,6 @@ def parse_args():
     return p.parse_args()
 
 
-def set_logging(debug):
-    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%m/%d/%Y %H:%M:%S')
-    if debug:
-        logging.getLogger().setLevel(logging.DEBUG)
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-
-
 def assert_no_duplicates(checked_list):
     full_len = len(checked_list)
     set_len = len(set(checked_list))
@@ -198,7 +181,7 @@ def get_func_word_counts(words):
 def chunks_fw_count_to_json(chunks, prefix):
     chunks_fw_counts = [get_func_word_counts(chunk) for chunk in chunks]
 
-    filename = prefix + '-counts.json'
+    filename = prefix + FW_COUNTS_SUFFIX
     logging.info("Writing chunks' function word counts to " + filename)
     with open(filename, 'w') as f:
         json.dump(chunks_fw_counts, f)
@@ -240,25 +223,22 @@ if __name__ == '__main__':
         lines[EN_NON_NATIVE_LINES_KEY] = []
         lines[FR_LINES_KEY] = []
         f = args.file_pattern + EN_SUFFIX
-        logging.info("Extracting lines from " + f)
-        with open(f) as lines_file:
-            i = 0
-            for l in lines_file:
-                i += 1
-                if i in en_native_line_nums:
-                    lines[EN_LINES_KEY].append(l)
-                elif i in en_non_native_line_nums:
-                    lines[EN_NON_NATIVE_LINES_KEY].append(l)
-                elif i in fr_native_line_nums:
-                    lines[FR_LINES_KEY].append(l)
-                else:
-                    logging.debug("Line " + str(i) + " in the corpus is not relevant (probably french line by english native speaker)")
+        logging.info("Loading lines from %s", f)
+        lines_file_as_list = open(f).read().splitlines()
+        logging.info("Done loading lines from " + f)
+
+        logging.info("Extracting %s", EN_LINES_KEY)
+        lines[EN_LINES_KEY] = [lines_file_as_list[i - 1] for i in en_native_line_nums]
+
+        logging.info("Extracting %s", EN_NON_NATIVE_LINES_KEY)
+        lines[EN_NON_NATIVE_LINES_KEY] = [lines_file_as_list[i - 1] for i in en_non_native_line_nums]
+
+        logging.info("Extracting %s", FR_LINES_KEY)
+        lines[FR_LINES_KEY] = [lines_file_as_list[i - 1] for i in fr_native_line_nums]
 
         output_lines_json(args.output_location, lines)
 
-    chunks_by_class = {}
     for key in [EN_LINES_KEY, EN_NON_NATIVE_LINES_KEY, FR_LINES_KEY]:
         logging.info("Generating " + key + " chunks of size=" + str(args.chunk_size))
-        chunks_by_class[key] = lines_to_word_chunks(lines[key], args.chunk_size)
-
-    chunks_fw_count_to_json(chunks_by_class[EN_LINES_KEY], args.output_location + EN_LINES_KEY)
+        chunks = lines_to_word_chunks(lines[key], args.chunk_size)
+        chunks_fw_count_to_json(chunks, args.output_location + CHUNK_FILENAME_PREFIX.format(key,str(args.chunk_size)))
