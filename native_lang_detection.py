@@ -11,13 +11,13 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("-d","--debug",action='store_true')
     p.add_argument("--input-location",default="/tmp/")
-    p.add_argument("-c","--chunk-size",type=int,default=500)
-    p.add_argument("-s","--sample-size",type=int,default=750)
+    p.add_argument("-c","--chunk-size",type=int,default=1000)
+    p.add_argument("-s","--sample-size",type=int,default=350)
     return p.parse_args()
 
 
 def load_chunks_by_class(filename, sample_size):
-    logging.info("Loading chunks from " + filename)
+    logging.info("Loading chunks from %s with sample amount of %d samples", filename, sample_size)
     with open(filename) as f:
         chunks = json.load(f)
         assert len(chunks) >= sample_size, filename + " has insufficient samples! It has only = " + str(len(chunks))

@@ -134,7 +134,7 @@ def parse_args():
     p.add_argument("--lines-from-file",action='store_true', help="Bypasses the speaker separation part")
     p.add_argument("--show-graph",action='store_true')
     p.add_argument("-t","--threshold",type=float,default=0.5)
-    p.add_argument("-c","--chunk-size",type=int,default=500)
+    p.add_argument("-c","--chunk-size",type=int,default=1000)
     return p.parse_args()
 
 
