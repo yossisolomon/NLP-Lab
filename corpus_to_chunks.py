@@ -1,11 +1,14 @@
 #!/usr/bin/python
 
 import argparse
-from shared import *
 import xml.etree.ElementTree as etree
 import matplotlib.pyplot as plt
 from random import shuffle
 from collections import Counter
+import itertools
+import nltk
+
+from shared import *
 from en_function_words import FUNCTION_WORDS
 
 fw_ones_counter = Counter(FUNCTION_WORDS)
@@ -171,11 +174,37 @@ def check_class_list(class_list):
 
 
 # freq list of a chunk
+def get_chunk_counts(words, pos_trigrams):
+    counts = get_func_word_counts(words)
+    counts.extend(get_pos_trigram_counts(words, pos_trigrams))
+    return counts
+
+
+def get_pos_trigram_counts(words, pos_trigrams):
+    c = Counter(nltk.trigrams(words))
+    return [c[t] for t in pos_trigrams]
+
+
 def get_func_word_counts(words):
     c = Counter(words)
-    fw_words_counts = map(lambda fw: c[fw],FUNCTION_WORDS)
-    assert len(fw_words_counts) == len(FUNCTION_WORDS), str(len(fw_words_counts)) + " not " + str(len(FUNCTION_WORDS))
+    fw_words_counts = map(lambda fw: c[fw], FUNCTION_WORDS)
+    assert len(fw_words_counts) == len(FUNCTION_WORDS), "{} not {}".format(str(len(fw_words_counts)),
+                                                                           str(len(FUNCTION_WORDS)))
     return fw_words_counts
+
+
+def words_to_most_common_pos_trigrams(words, top=3000):
+    logging.info("Calculating %d most common POS Trigrams in corpus", top)
+    c = Counter(nltk.trigrams(words))
+    return [t[0] for t in c.most_common(top)]
+
+
+def lines_to_words(lines):
+    words = []
+    for l in itertools.chain.from_iterable(lines.values()):
+        split_line = l.split()
+        words.extend(split_line)
+    return words
 
 
 if __name__ == '__main__':
@@ -228,13 +257,17 @@ if __name__ == '__main__':
 
         output_lines_json(args.output_location, lines)
 
+    logging.info("Generating POS counts from words")
+    pos_trigrams = words_to_most_common_pos_trigrams(lines_to_words(lines))
+    logging.debug(pos_trigrams)
+
     for key in [EN_LINES_KEY, EN_NON_NATIVE_LINES_KEY, FR_LINES_KEY]:
         logging.info("Generating " + key + " chunks of size=" + str(args.chunk_size))
         chunks = lines_to_word_chunks(lines[key], args.chunk_size)
         logging.info("Analyzing chunks")
-        chunks_fw_counts = [get_func_word_counts(chunk) for chunk in chunks]
-        filename = args.output_location + CHUNK_FILENAME_PREFIX.format(key,str(args.chunk_size)) + FW_COUNTS_SUFFIX
-        logging.info("Writing chunks' function word counts to %s", filename)
+        chunks_counts = [get_chunk_counts(chunk, pos_trigrams) for chunk in chunks]
+        filename = args.output_location + CHUNK_FILENAME_PREFIX.format(key,str(args.chunk_size)) + COUNTS_SUFFIX
+        logging.info("Writing chunks' counts to %s", filename)
         with open(filename, 'w') as f:
-            json.dump(chunks_fw_counts, f)
-        logging.info("Done writing chunks' function word counts to %s", filename)
+            json.dump(chunks_counts, f)
+        logging.info("Done writing chunks' counts to %s", filename)

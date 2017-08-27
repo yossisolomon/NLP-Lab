@@ -42,7 +42,7 @@ if __name__ == '__main__':
     chunks_by_class = {}
     i = 0
     for k in [EN_LINES_KEY, EN_NON_NATIVE_LINES_KEY, FR_LINES_KEY]:
-        filename = args.input_location + CHUNK_FILENAME_PREFIX.format(k, str(args.chunk_size)) + FW_COUNTS_SUFFIX
+        filename = args.input_location + CHUNK_FILENAME_PREFIX.format(k, str(args.chunk_size)) + COUNTS_SUFFIX
         chunks = load_chunks_by_class(filename, args.sample_size)
         # counts to frequencies
         chunks = map(lambda chunk: [count / float(args.chunk_size) for count in chunk], chunks)
