@@ -136,6 +136,8 @@ def parse_args():
     p.add_argument("--speaker-stats-from-file",action='store_true')
     p.add_argument("--lines-from-file",action='store_true', help="Bypasses the speaker separation part")
     p.add_argument("--show-graph",action='store_true')
+    p.add_argument("--metrics-calc",action='store_true')
+    p.add_argument("--chunking",action='store_true')
     p.add_argument("-t","--threshold",type=float,default=0.5, choices=[x/10.0 for x in xrange(0, 10, 1)])
     p.add_argument("-c","--chunk-size",type=int,default=1000)
     return p.parse_args()
@@ -199,12 +201,26 @@ def words_to_most_common_pos_trigrams(words, top=3000):
     return [t[0] for t in c.most_common(top)]
 
 
-def lines_to_words(lines):
-    words = []
-    for l in itertools.chain.from_iterable(lines.values()):
-        split_line = l.split()
-        words.extend(split_line)
+def lines_dict_to_words_dict(lines):
+    words = {}
+    for class_key in lines.keys():
+        words[class_key] = []
+        for l in lines[class_key]:
+            split_line = l.split()
+            words[class_key].extend(split_line)
     return words
+
+
+def calc_lexical_richness(words, min_token_count):
+    logging.info("Token amount for Lexical richness = %d", min_token_count)
+    for class_key, class_words in words.items():
+        shuffle(class_words)
+        c = Counter(class_words[:min_token_count])
+        rare_words_cnt = 0
+        for cnt in c.values():
+            if cnt == 1:
+                rare_words_cnt += 1
+        logging.info("Lexical richness for class %s = %f", class_key, float(rare_words_cnt) / min_token_count)
 
 
 if __name__ == '__main__':
@@ -257,17 +273,29 @@ if __name__ == '__main__':
 
         output_lines_json(args.output_location, lines)
 
-    logging.info("Generating POS counts from words")
-    pos_trigrams = words_to_most_common_pos_trigrams(lines_to_words(lines))
-    logging.debug(pos_trigrams)
+    logging.info("Generating list of words from corpus")
+    words = lines_dict_to_words_dict(lines)
 
-    for key in [EN_LINES_KEY, EN_NON_NATIVE_LINES_KEY, FR_LINES_KEY]:
-        logging.info("Generating " + key + " chunks of size=" + str(args.chunk_size))
-        chunks = lines_to_word_chunks(lines[key], args.chunk_size)
-        logging.info("Analyzing chunks")
-        chunks_counts = [get_chunk_counts(chunk, pos_trigrams) for chunk in chunks]
-        filename = args.output_location + CHUNK_FILENAME_PREFIX.format(key,str(args.chunk_size)) + COUNTS_SUFFIX
-        logging.info("Writing chunks' counts to %s", filename)
-        with open(filename, 'w') as f:
-            json.dump(chunks_counts, f)
-        logging.info("Done writing chunks' counts to %s", filename)
+    if args.metrics_calc:
+        metrics = {
+            "Lexical richness": calc_lexical_richness
+        }
+        min_token_count = min([len(l) for l in words.values()])
+        for metric, calc in metrics.items():
+            logging.info("Generating the %s metric from words",metric)
+            calc(words, min_token_count)
+
+    if args.chunking:
+        logging.info("Generating POS counts from words")
+        pos_trigrams = words_to_most_common_pos_trigrams(itertools.chain.from_iterable(words.values()))
+        logging.debug(pos_trigrams)
+        for key in [EN_LINES_KEY, EN_NON_NATIVE_LINES_KEY, FR_LINES_KEY]:
+            logging.info("Generating " + key + " chunks of size=" + str(args.chunk_size))
+            chunks = lines_to_word_chunks(lines[key], args.chunk_size)
+            logging.info("Analyzing chunks")
+            chunks_counts = [get_chunk_counts(chunk, pos_trigrams) for chunk in chunks]
+            filename = args.output_location + CHUNK_FILENAME_PREFIX.format(key,str(args.chunk_size)) + COUNTS_SUFFIX
+            logging.info("Writing chunks' counts to %s", filename)
+            with open(filename, 'w') as f:
+                json.dump(chunks_counts, f)
+            logging.info("Done writing chunks' counts to %s", filename)
