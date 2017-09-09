@@ -20,3 +20,23 @@ def set_logging(debug):
         logging.getLogger().setLevel(logging.DEBUG)
     else:
         logging.getLogger().setLevel(logging.INFO)
+
+
+def load_lines_json(output_location):
+    file = output_location + "lines-out.json"
+    logging.info("Loading lines from " + file)
+    lines = {}
+    with open(file) as f:
+        lines = json.load(f)
+    return lines
+
+
+def lines_dict_to_words_dict(lines):
+    logging.info("Generating list of words from corpus")
+    words = {}
+    for class_key in lines.keys():
+        words[class_key] = []
+        for l in lines[class_key]:
+            split_line = l.split()
+            words[class_key].extend(split_line)
+    return words
