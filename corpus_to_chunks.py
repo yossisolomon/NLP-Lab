@@ -10,6 +10,7 @@ import nltk
 
 from shared import *
 from en_function_words import FUNCTION_WORDS
+from en_idioms import IDIOMS
 
 fw_ones_counter = Counter(FUNCTION_WORDS)
 
@@ -211,16 +212,26 @@ def lines_dict_to_words_dict(lines):
     return words
 
 
-def calc_lexical_richness(words, min_token_count):
-    logging.info("Token amount for Lexical richness = %d", min_token_count)
+def calc_lexical_richness(words, token_count):
     for class_key, class_words in words.items():
         shuffle(class_words)
-        c = Counter(class_words[:min_token_count])
+        c = Counter(class_words[:token_count])
         rare_words_cnt = 0
         for cnt in c.values():
             if cnt == 1:
                 rare_words_cnt += 1
-        logging.info("Lexical richness for class %s = %f", class_key, float(rare_words_cnt) / min_token_count)
+        logging.info("Lexical richness for class %s = %f", class_key, float(rare_words_cnt) / token_count)
+
+
+def calc_collocations(words, token_count):
+    for class_key, class_words in words.items():
+        bgs = nltk.bigrams(class_words[:token_count])
+        fdist = nltk.FreqDist(bgs)
+        collocation_sum = 0
+        for k, v in fdist.items():
+            if k in IDIOMS:
+                collocation_sum += v
+        logging.info("Collocation metric for class %s = %f", class_key, float(collocation_sum) / token_count)
 
 
 if __name__ == '__main__':
@@ -278,9 +289,11 @@ if __name__ == '__main__':
 
     if args.metrics_calc:
         metrics = {
-            "Lexical richness": calc_lexical_richness
+            "Lexical richness": calc_lexical_richness,
+            "Collocations": calc_collocations
         }
         min_token_count = min([len(l) for l in words.values()])
+        logging.info("Token amount for metric calculations = %d", min_token_count)
         for metric, calc in metrics.items():
             logging.info("Generating the %s metric from words",metric)
             calc(words, min_token_count)
