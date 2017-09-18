@@ -1,19 +1,12 @@
 #!/usr/bin/python
 
 import argparse
-from shared import *
 import numpy as np
+from random import shuffle
 from sklearn.cross_validation import StratifiedKFold, cross_val_score
 from sklearn.ensemble import RandomForestClassifier
 
-
-def parse_args():
-    p = argparse.ArgumentParser()
-    p.add_argument("-d","--debug",action='store_true')
-    p.add_argument("--input-location",default="/tmp/")
-    p.add_argument("-c","--chunk-size",type=int,default=1000)
-    p.add_argument("-s","--sample-size",type=int,default=350)
-    return p.parse_args()
+from shared import *
 
 
 def load_chunks_by_class(filename, sample_size):
@@ -36,17 +29,37 @@ def score_cross_validated(chunks_list, classes_list):
     logging.info("Average score = %f", np.mean(score, dtype=np.float64))
 
 
+def parse_args():
+    p = argparse.ArgumentParser()
+    p.add_argument("-d","--debug",action='store_true')
+    p.add_argument("--input-location",default="/tmp/")
+    p.add_argument("-c","--chunk-size",type=int,default=1000)
+    return p.parse_args()
+
+
 if __name__ == '__main__':
     args = parse_args()
     set_logging(args.debug)
+
     chunks_by_class = {}
-    i = 0
     for k in [EN_LINES_KEY, EN_NON_NATIVE_LINES_KEY, FR_LINES_KEY]:
         filename = args.input_location + CHUNK_FILENAME_PREFIX.format(k, str(args.chunk_size)) + COUNTS_SUFFIX
-        chunks = load_chunks_by_class(filename, args.sample_size)
+        logging.info("Loading chunks from %s", filename)
+        chunks_by_class[k] = json.load(open(filename))
+
+    sample_size = min([len(c) for c in chunks_by_class.values()])
+    logging.info("Using sample amount of %d samples (min of all classes)", sample_size)
+
+    i = 0
+    for k in [EN_LINES_KEY, EN_NON_NATIVE_LINES_KEY, FR_LINES_KEY]:
+        # Shuffle chunks used for better lexical diversity
+        shuffle(chunks_by_class[k])
+        # Use only sample_size chunks
+        chunks_by_class[k] = chunks_by_class[k][:sample_size]
         # counts to frequencies
-        chunks = map(lambda chunk: [count / float(args.chunk_size) for count in chunk], chunks)
-        chunks_by_class[k] = (np.asarray(chunks, np.float), np.repeat(i, args.sample_size))
+        chunks_by_class[k] = map(lambda chunk: [count / float(args.chunk_size) for count in chunk], chunks_by_class[k])
+        # Per class - normalized frequency vector as input, labelling for class
+        chunks_by_class[k] = (np.asarray(chunks_by_class[k], np.float), np.repeat(i, sample_size))
         i += 1
 
     keys = [EN_LINES_KEY, FR_LINES_KEY]
@@ -64,5 +77,3 @@ if __name__ == '__main__':
     keys = [EN_LINES_KEY, EN_NON_NATIVE_LINES_KEY, FR_LINES_KEY]
     logging.info("Scoring %s",str(keys))
     score_cross_validated([chunks_by_class[k][0] for k in keys], [chunks_by_class[k][1] for k in keys])
-
-

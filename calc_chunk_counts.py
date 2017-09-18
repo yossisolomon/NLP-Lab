@@ -57,6 +57,7 @@ def words_to_most_common_pos_trigrams(words, top=3000):
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("-d","--debug",action='store_true')
+    p.add_argument("-j","--lines-json-location",default="/tmp/")
     p.add_argument("--output-location",default="/tmp/")
     p.add_argument("--function-word-counts",action='store_true')
     p.add_argument("--pos-counts",action='store_true')
@@ -68,7 +69,7 @@ if __name__ == '__main__':
     args = parse_args()
     set_logging(args.debug)
 
-    lines = load_lines_json(args.output_location)
+    lines = load_lines_json(args.lines_json_location)
 
     counters = []
     if args.pos_counts:
@@ -76,10 +77,10 @@ if __name__ == '__main__':
         logging.info("Generating POS counts from words")
         pos_trigrams = words_to_most_common_pos_trigrams(itertools.chain.from_iterable(words.values()))
         logging.debug(pos_trigrams)
-        counters.append((get_pos_trigram_counts, pos_trigrams))
+        counters.append([get_pos_trigram_counts, pos_trigrams])
 
     if args.function_word_counts:
-        counters.append(tuple(get_func_word_counts))
+        counters.append([get_func_word_counts])
 
     assert len(counters) > 0, "No counter selected for chunks, see help for flags"
 

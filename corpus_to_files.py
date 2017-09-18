@@ -7,17 +7,6 @@ import matplotlib.pyplot as plt
 from shared import *
 
 
-class NativeSpeakerSeparator:
-    def __init__(self, threshold):
-        self.threshold = threshold
-
-    def is_native_english_speaker(self, speaker):
-        return speaker[FR_PERCENT_KEY] < self.threshold
-
-    def __str__(self):
-        return "Threshold=" + str(self.threshold * 100) + " as max % of FR lines"
-
-
 def separate_identification(line):
     tree = etree.fromstring(line)
     line_count = tree.attrib["COUNT"]
@@ -29,15 +18,17 @@ def separate_identification(line):
 def add_speakers_lines_from_id_file(filename):
     speakers = {}
     logging.info("Running speaker extraction from "+filename)
-    with open(filename) as f:
-        for line in f:
-            line_count, name, lang = separate_identification(line)
-            if name not in speakers:
-                speakers[name] = {}
-                speakers[name][EN_LINES_KEY] = []
-                speakers[name][FR_LINES_KEY] = []
-            speakers[name][lang+"_LINES"].append(line_count)
-    logging.info("Found " + str(len(speakers)) + " speakers")
+    logging.info("Loading IDs from %s", filename)
+    id_file_as_list = open(filename).read().splitlines()
+    logging.info("Done loading IDs from %s", filename)
+    for line in id_file_as_list:
+        line_count, name, lang = separate_identification(line)
+        if name not in speakers:
+            speakers[name] = {}
+            speakers[name][EN_LINES_KEY] = []
+            speakers[name][FR_LINES_KEY] = []
+        speakers[name][lang+"_LINES"].append(line_count)
+    logging.info("Found %d speakers", len(speakers))
     return speakers
 
 
@@ -50,7 +41,7 @@ def output_speakers_json(output_location, speakers):
 
 def output_lines_json(output_location, lines):
     output = output_location + "lines-out.json"
-    logging.info("Outputting lines to " + output)
+    logging.info("Outputting lines to %s", output)
     with open(output, 'w') as out:
         json.dump(lines, out, indent=4, separators=(',', ': '))
 
@@ -58,10 +49,7 @@ def output_lines_json(output_location, lines):
 def load_speakers_json(output_location):
     file = output_location + "speakers-out.json"
     logging.info("Loading speakers from " + file)
-    speakers = {}
-    with open(file) as f:
-        speakers = json.load(f)
-    return speakers
+    return json.load(open(file))
 
 
 def add_speakers_stats(speakers):
@@ -95,21 +83,27 @@ def get_speakers_stats_from_id_file(file_pattern):
     return speakers
 
 
-def separate_lines_by_lang(speakers, separator):
+def separate_lines_by_lang(speakers, threshold):
     en_native_lines = []
     en_non_native_lines = []
-    fr_native_lines = []
+    en_translated_lines = []
     for speaker in speakers.keys():
-        if separator.is_native_english_speaker(speakers[speaker]):
+        # Take all fully english speakers as native English Speakers
+        if speakers[speaker][EN_PERCENT_KEY] == 1.0:
             en_native_lines.extend(speakers[speaker][EN_LINES_KEY])
-        else:
+        # Take all those who spoke above a threshold in French to be Non-Native English Speakers
+        elif speakers[speaker][FR_PERCENT_KEY] >= threshold:
             en_non_native_lines.extend(speakers[speaker][EN_LINES_KEY])
-            fr_native_lines.extend(speakers[speaker][FR_LINES_KEY])
-    logging.info("By check - " + str(separator) + " we got:\n"
-                 + str(len(en_native_lines)) + " English native lines, "
-                 + str(len(en_non_native_lines)) + " English non-native lines, and "
-                 + str(len(fr_native_lines)) + " French lines")
-    return en_native_lines, en_non_native_lines, fr_native_lines
+        # Take all translated texts from English to French as Translated English
+        en_translated_lines.extend(speakers[speaker][FR_LINES_KEY])
+    logging.info("""We got:
+                 %d English native lines;
+                 %d English non-native lines (Threshold = %d as min percentageof lines spoken in French);
+                 %d Translated English (from French) lines""",
+                 len(en_native_lines),
+                 len(en_non_native_lines), threshold * 100,
+                 len(en_translated_lines))
+    return en_native_lines, en_non_native_lines, en_translated_lines
 
 
 def assert_no_duplicates(checked_list):
@@ -149,17 +143,16 @@ if __name__ == '__main__':
     if args.show_graph:
         create_minimum_lines_speakers_graph(speakers)
 
-    separator = NativeSpeakerSeparator(args.threshold)
-    en_native_line_nums, en_non_native_line_nums, fr_native_line_nums = separate_lines_by_lang(speakers, separator)
+    en_native_line_nums, en_non_native_line_nums, en_translated_line_nums = separate_lines_by_lang(speakers, args.threshold)
 
     en_native_line_nums = map(lambda i: int(i), en_native_line_nums)
     en_non_native_line_nums = map(lambda i: int(i), en_non_native_line_nums)
-    fr_native_line_nums = map(lambda i: int(i), fr_native_line_nums)
+    en_translated_line_nums = map(lambda i: int(i), en_translated_line_nums)
 
     logging.info("Checking for line class list problems...")
     check_class_list(en_native_line_nums)
     check_class_list(en_non_native_line_nums)
-    check_class_list(fr_native_line_nums)
+    check_class_list(en_translated_line_nums)
     logging.info("All Good!")
 
     lines = {
@@ -170,7 +163,7 @@ if __name__ == '__main__':
     f = args.file_pattern + EN_SUFFIX
     logging.info("Loading lines from %s", f)
     lines_file_as_list = open(f).read().splitlines()
-    logging.info("Done loading lines from " + f)
+    logging.info("Done loading lines from %s", f)
 
     logging.info("Extracting %s", EN_LINES_KEY)
     lines[EN_LINES_KEY] = [lines_file_as_list[i - 1] for i in en_native_line_nums]
@@ -179,7 +172,7 @@ if __name__ == '__main__':
     lines[EN_NON_NATIVE_LINES_KEY] = [lines_file_as_list[i - 1] for i in en_non_native_line_nums]
 
     logging.info("Extracting %s", FR_LINES_KEY)
-    lines[FR_LINES_KEY] = [lines_file_as_list[i - 1] for i in fr_native_line_nums]
+    lines[FR_LINES_KEY] = [lines_file_as_list[i - 1] for i in en_translated_line_nums]
 
     output_lines_json(args.output_location, lines)
 

@@ -3,6 +3,7 @@
 import argparse
 import matplotlib.pyplot as plt
 from collections import Counter
+from random import shuffle
 
 from shared import *
 from en_idioms import IDIOMS
@@ -13,7 +14,7 @@ from en_pronouns import PRONOUNS
 def calc_lexical_richness(words, token_count):
     res = {}
     for class_key, class_words in words.items():
-        # shuffle(class_words)
+        shuffle(class_words)
         c = Counter(class_words[:token_count])
         rare_words_cnt = 0
         for cnt in c.values():
@@ -57,7 +58,7 @@ def calc_cohesive_markers(words, token_count):
 def calc_personal_pronouns(words, token_count):
     res = {}
     for class_key, class_words in words.items():
-        # shuffle(class_words)
+        shuffle(class_words)
         c = Counter(class_words[:token_count])
         pronoun_count = 0
         for p in PRONOUNS:
@@ -105,6 +106,7 @@ def plot_metrics(metrics_by_class, metric_keys):
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("-d","--debug",action='store_true')
+    p.add_argument("-j","--lines-json-location",default="/tmp/")
     p.add_argument("--lines-from-file",action='store_true', help="Bypasses the speaker separation part")
     p.add_argument("--show-graph",action='store_true')
     return p.parse_args()
@@ -114,7 +116,7 @@ if __name__ == '__main__':
     args = parse_args()
     set_logging(args.debug)
 
-    lines = load_lines_json(args.output_location)
+    lines = load_lines_json(args.lines_json_location)
 
     words = lines_dict_to_words_dict(lines)
 
@@ -137,4 +139,5 @@ if __name__ == '__main__':
             logging.info("Normalized (total sum) for class %s = %f", class_key, normalized_res)
             normalized_results_by_class[class_key].append(normalized_res)
 
-    plot_metrics(normalized_results_by_class,metrics.keys())
+    if args.show_graph:
+        plot_metrics(normalized_results_by_class,metrics.keys())
